@@ -1,11 +1,13 @@
 #include "DDImage/PixelIop.h"
 #include "DDImage/Row.h"
-#include "DDImage/Knobs"
+#include "DDImage/Knobs.h"
 #include "DDImage/NukeWrapper.h"
 
 static const char* const HELP =
 "This node remaps the input between 2 values "
-"using a linear interpolation algoritmh"
+"using a linear interpolation algoritmh";
+
+using namespace DD::Image;
 
 class RemapIop : public PixelIop
 {
@@ -36,12 +38,12 @@ void RemapIop::_validate(bool for_real)
 {
 	copy_info();
 	if(lowValue == 0.0f && highValue == 1.0f)
-		set_out_channels(Mask_None)
+		set_out_channels(Mask_None);
 	else
-		set_out_channels(Mask_All)
+		set_out_channels(Mask_All);
 }
 
-void RemapIop::in_channels(int input, ChannelSet &mask)
+void RemapIop::in_channels(int input, ChannelSet &mask) const
 {
 	// mask is unchanged, PixelIop's variant on request
 }
@@ -53,11 +55,8 @@ void RemapIop::pixel_engine(const Row& in, int y, int x, int r, ChannelMask chan
 		const float* END = inptr + (r - x);
 		float* outptr = out.writable(z) + x;
 		
-		if(highValue != 0){
-			const float c = lowValue/highValue;
-			while(inptr < END)
-				*outptr++ = lowValue + *inptr - c * *inptr++;
-		}
+		while(inptr < END)
+			*outptr++ = lowValue + *inptr++ * highValue;
 	}
 }
 
@@ -68,4 +67,4 @@ void RemapIop::knobs(Knob_Callback f)
 }
 
 static Iop* build(Node *node) { return new RemapIop(node); }
-const Iop::Description RemapIop::d("Remap", "Remap", build)
+const Iop::Description RemapIop::d("Remap", "Remap", build);
