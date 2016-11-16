@@ -1,7 +1,7 @@
 #include "DDImage/PixelIop.h"
 #include "DDImage/Row.h"
 #include "DDImage/Knobs"
-#include "DDImage/DDImage"
+#include "DDImage/NukeWrapper.h"
 
 static const char* const HELP =
 "This node remaps the input between 2 values "
@@ -23,6 +23,7 @@ public:
 	void _validate(bool);
 	void in_channels(int, ChannelSet&) const;
 	void pixel_engine(const Row&, int, int, int, ChannelMask, Row&);
+	virtual void knobs(Knob_Callback);
 	
 	static const Iop::Description d;
 	
@@ -49,13 +50,22 @@ void RemapIop::pixel_engine(const Row& in, int y, int x, int r, ChannelMask chan
 {
 	foreach (z, channels){
 		const float* inptr = in[z] + x;
-		const float* END = inptr + (r - x)
-		float* outptr = out.writable(z) + x
+		const float* END = inptr + (r - x);
+		float* outptr = out.writable(z) + x;
 		
 		if(highValue != 0){
 			const float c = lowValue/highValue;
 			while(inptr < END)
-				*outptr++ = lowValue + *inptr - c * *inptr++
+				*outptr++ = lowValue + *inptr - c * *inptr++;
 		}
 	}
 }
+
+void RemapIop::knobs(Knob_Callback f)
+{
+	Float_knob(f, &lowValue, "Low");
+	Float_knob(f, &highValue, "High");
+}
+
+static Iop* build(Node *node) { return new RemapIop(node); }
+const Iop::Description RemapIop::d("Remap", "Remap", build)
