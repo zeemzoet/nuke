@@ -7,14 +7,14 @@ static const char* const HELP =
 "This node remaps the input between 2 values "
 "using a linear interpolation algoritmh"
 
-class LerpIop : public PixelIop
+class RemapIop : public PixelIop
 {
 
 	double lowValue, highValue;
 
 public:
 
-	LerpIop(Node* node) : PixelIop(node)
+	RemapIop(Node* node) : PixelIop(node)
 	{
 		lowValue = 0.0f;
 		highValue = 1.0f;
@@ -30,7 +30,7 @@ public:
 
 };
 
-void LerpIop::_validate(bool for_real)
+void RemapIop::_validate(bool for_real)
 {
 	copy_info();
 	if(lowValue == 0.0f && highValue == 1.0f)
