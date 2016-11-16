@@ -21,7 +21,8 @@ public:
 	}
 
 	void _validate(bool);
-	void pixel_engine(const Row& in, int y, int x, int r, ChannelMask channels, Row& out);
+	void in_channels(int, ChannelSet&) const;
+	void pixel_engine(const Row&, int, int, int, ChannelMask, Row&);
 	
 	static const Iop::Description d;
 	
@@ -37,4 +38,24 @@ void RemapIop::_validate(bool for_real)
 		set_out_channels(Mask_None)
 	else
 		set_out_channels(Mask_All)
+}
+
+void RemapIop::in_channels(int input, ChannelSet &mask)
+{
+	// mask is unchanged, PixelIop's variant on request
+}
+
+void RemapIop::pixel_engine(const Row& in, int y, int x, int r, ChannelMask channels, Row& out)
+{
+	foreach (z, channels){
+		const float* inptr = in[z] + x;
+		const float* END = inptr + (r - x)
+		float* outptr = out.writable(z) + x
+		
+		if(highValue != 0){
+			const float c = lowValue/highValue;
+			while(inptr < END)
+				*outptr++ = lowValue + *inptr - c * *inptr++
+		}
+	}
 }
