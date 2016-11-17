@@ -11,7 +11,7 @@ using namespace DD::Image;
 class RemapIop : public PixelIop
 {
 
-	double lowValue, highValue;
+	float lowValue, highValue;
 
 public:
 
