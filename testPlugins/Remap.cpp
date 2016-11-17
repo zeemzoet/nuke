@@ -1,7 +1,6 @@
 #include "DDImage/PixelIop.h"
 #include "DDImage/Row.h"
 #include "DDImage/Knobs.h"
-#include "DDImage/NukeWrapper.h"
 
 static const char* const HELP =
 "This node remaps the input between 2 values "
