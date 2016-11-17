@@ -24,6 +24,7 @@ public:
 	void _validate(bool);
 	void in_channels(int, ChannelSet&) const;
 	void pixel_engine(const Row&, int, int, int, ChannelMask, Row&);
+	bool pass_transform() const { return true; }
 	virtual void knobs(Knob_Callback);
 	
 	static const Iop::Description d;
