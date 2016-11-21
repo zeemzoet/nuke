@@ -1,6 +1,7 @@
 #include "DDImage/PixelIop.h"
 #include "DDImage/Row.h"
 #include "DDImage/Knobs.h"
+#include "DDImage/NukeWrapper.h"
 
 using namespace DD::Image;
 
@@ -12,13 +13,13 @@ static const char* const HELP =
 class WhiteBalanceIop : public PixelIop
 {
 	
-	float value[4];
+	float value[3];
 	
 public:
 	
 	WhiteBalanceIop(Node* node) : PixelIop(node)
 	{
-		value[0] = value[1] = value[2] = value[3] = 1.0f;
+		value[0] = value[1] = value[2] = 1.0f;
 	}
 	
 	void _validate(bool);
@@ -37,7 +38,7 @@ public:
 void WhiteBalanceIop::_validate(bool for_real)
 {
 	copy_info();
-	for (unsigned i = 0; i < 4; i++) {
+	for (unsigned i = 0; i < 3; i++) {
 		if (value[i] != 1.0f) {
 			set_out_channels(Mask_ALL);
 			return;
@@ -63,7 +64,7 @@ void WhiteBalanceIop::pixel_engine(Row& in, int y, int x, int r, ChannelMask cha
 		else {
 		
 			const float c = value[z]
-			float avgC = 0.3f * value[0] + 0.59f * value[1] + 0.11f * value[2];
+			float avgC = 0.299f * value[0] + 0.587f * value[1] + 0.114f * value[2];
 		
 			const float inptr* = in[z] + x;
 			const float END* = inptr + (r - x);
@@ -74,3 +75,15 @@ void WhiteBalanceIop::pixel_engine(Row& in, int y, int x, int r, ChannelMask cha
 		}
 	}
 }
+
+void WhiteBalanceIop::knobs(Knob_Callback f)
+{
+	AColor_knob(f, value, "white")
+}
+
+static Iop* build(Node* node)
+{
+	return (new NukeWrapper(new WhiteBalanceIop(node)))->channels(Mask_RGB);
+}
+
+const Iop::Description WhiteBalanceIop::d("Whitebalance", "Color/Whitebalance", build);
