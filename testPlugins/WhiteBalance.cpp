@@ -5,7 +5,7 @@
 
 using namespace DD::Image;
 
-static const char* const CLASS = "WhiteBalanceIop"
+//static const char* const CLASS = "WhiteBalanceIop";
 static const char* const HELP =
 "This node set's the whitebalance of the image, "
 "based on the users input.";
@@ -26,11 +26,11 @@ public:
 	void in_channels(int, ChannelSet&) const;
 	void pixel_engine(const Row&, int, int, int, ChannelMask, Row&);
 	bool pass_transform() const { return true; }
-	virtual void knobs(Knob_Callback)
+	virtual void knobs(Knob_Callback);
 	
 	static const Iop::Description d;
 	
-	const char* Class() const { return CLASS; }
+	const char* Class() const { return d.name; }
 	const char* node_help() const { return HELP; }
 	
 };
@@ -40,11 +40,12 @@ void WhiteBalanceIop::_validate(bool for_real)
 	copy_info();
 	for (unsigned i = 0; i < 3; i++) {
 		if (value[i] != 1.0f) {
-			set_out_channels(Mask_ALL);
+			set_out_channels(Mask_All);
 			return;
 		}
 	}
 	set_out_channels(Mask_None);
+	PixelIop::_validate(for_real);
 }
 
 void WhiteBalanceIop::in_channels(int input, ChannelSet& mask) const
@@ -53,21 +54,21 @@ void WhiteBalanceIop::in_channels(int input, ChannelSet& mask) const
 		mask += (Mask_RGB);
 }
 
-void WhiteBalanceIop::pixel_engine(Row& in, int y, int x, int r, ChannelMask channels, Row& out)
+void WhiteBalanceIop::pixel_engine(const Row& in, int y, int x, int r, ChannelMask channels, Row& out)
 {
 	foreach(z, channels) {
 		
-		if(colourIndex(z) >= 3) {
-			out.copy(in, z, x, r)
+		if(colourIndex(z) >= 3 || colourIndex(z) < 1) {
+			out.copy(in, z, x, r);
 			continue;
 		}
 		else {
 		
-			const float c = value[z]
+			const float c = value[z];
 			float avgC = 0.299f * value[0] + 0.587f * value[1] + 0.114f * value[2];
 		
-			const float inptr* = in[z] + x;
-			const float END* = inptr + (r - x);
+			const float* inptr = in[z] + x;
+			const float* END = inptr + (r - x);
 			float* outptr = out.writable(z) + x;
 		
 			while (inptr < END)
@@ -78,7 +79,7 @@ void WhiteBalanceIop::pixel_engine(Row& in, int y, int x, int r, ChannelMask cha
 
 void WhiteBalanceIop::knobs(Knob_Callback f)
 {
-	AColor_knob(f, value, "white")
+	AColor_knob(f, value, "white");
 }
 
 static Iop* build(Node* node)
