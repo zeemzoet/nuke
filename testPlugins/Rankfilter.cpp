@@ -13,7 +13,7 @@ static const char* const HELP =
 
 using namespace DD::Image;
 
-#include <algortihm>
+#include <algorithm>
 #include <vector>
 
 using namespace std;
@@ -37,7 +37,7 @@ public:
 	~RankFilter() {}
 
 	void _validate(bool);
-	void _request(int, int, int, int, ChannelMask channels, int count);
+	void _request(int, int, int, int, ChannelMask, int);
 	void engine(int, int, int, ChannelMask, Row&);
 
 	const char* Class() const { return CLASS; }
@@ -54,10 +54,21 @@ static Iop* build(Node* node)
 
 const Iop::Description RankFilter::d (CLASS, "Filter/RankFilter", build);
 
+void _validate(bool for_real)
+{
+	copy_info();
+	info_.pad( _size );
+}
+
+void _request(int x, int y, int r, int t, ChannelMask channels, int count)
+{
+	input(0)->request( x - _size, y - _size, r + _size, t + _size, channels, count);
+}
+
 void RankFilter::engine(int y, int x, int r, ChannelMask channels, Row& row)
 {
 
-	Tile tile( input0(), x - _size, y - _size, r + _size, y+_size, channels);
+	Tile tile( input0(), x - _size, y - _size, r + _size, y + _size, channels);
 	if (aborted()) { return; }
 
 	foreach(z, channels) {
@@ -70,13 +81,13 @@ void RankFilter::engine(int y, int x, int r, ChannelMask channels, Row& row)
 
 			for (int px = -_size; px < _size; px++) {
 				for (int py = -_size; py < _size; py++)
-					v.push_back(tile[ z ][ tile.clampy(y+py) ][ tile.clampx(cur + px) ]);
+					v.push_back(tile[z][tile.clampy(y + py)][tile.clampx(cur + px)]);
 			}
 
 			size_t n = v.size() * _value;
 			nth_element(v.begin(), v.begin()+n, v.end());
 
-			*outptr++ = v[n]
+			*outptr++ = v[n];
 
 		}
 
