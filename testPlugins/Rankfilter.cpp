@@ -20,7 +20,8 @@ using namespace std;
 
 class RankFilter : public Iop
 {
-	int _size;
+	float _w, _h;
+	int _sizeH, _sizeW;
 	float _value;
 
 public:
@@ -30,7 +31,7 @@ public:
 
 	RankFilter (Node* node) : Iop(node)
 	{
-		_size = 3;
+		_w = _h = 3;
 		_value = 0.5f;
 	}
 
@@ -56,20 +57,41 @@ const Iop::Description RankFilter::d (CLASS, "Filter/RankFilter", build);
 
 void _validate(bool for_real)
 {
+	_sizeH = int(fabs(_h) + 0.5);
+	_sizeW = int(fabs(_w) + 0.5);
 	copy_info();
-	info_.pad( _size );
+	info_.y(info_.y() - _sizeH);
+	info_.t(info_.t() + _sizeH);
+	info_.x(info_.x() - _sizeW);
+	info_.r(info_.r() + _sizeW);
+	
+	set_out_channels(_sizeH || _sizeW ? Mask_All : Mask_None);
 }
 
 void _request(int x, int y, int r, int t, ChannelMask channels, int count)
 {
-	input(0)->request( x - _size, y - _size, r + _size, t + _size, channels, count);
+	x -= _sizeW;
+	y -= _sizeH;
+	r += _sizeW;
+	t += _sizeH;
+	input(0)->request( x, y, r, t, channels, count);
 }
 
 void RankFilter::engine(int y, int x, int r, ChannelMask channels, Row& row)
 {
 
-	Tile tile( input0(), x - _size, y - _size, r + _size, y + _size, channels);
+	Tile tile( input0(), x - _sizeW, y - _sizeH, r + _sizeW, y + _sizeH + 1, channels);
 	if (aborted()) { return; }
+	
+	if (!tile.valid()) {
+		// if the tile is not valid, just make it black (like your soul).
+		
+		foreach (z, channels) {
+			float *outptr = row.writeable(z) + x;
+			memset( &outptr[tile.x()], 0 , (tile.x() - tile.r()) * sizeof(float));
+		}
+		return;
+	}
 
 	foreach(z, channels) {
 		
@@ -79,8 +101,8 @@ void RankFilter::engine(int y, int x, int r, ChannelMask channels, Row& row)
 
 			vector<float> v;
 
-			for (int px = -_size; px < _size; px++) {
-				for (int py = -_size; py < _size; py++)
+			for (int px = -_sizeW; px < _sizeW; px++) {
+				for (int py = -_sizeH; py < _sizeH; py++)
 					v.push_back(tile[z][tile.clampy(y + py)][tile.clampx(cur + px)]);
 			}
 
