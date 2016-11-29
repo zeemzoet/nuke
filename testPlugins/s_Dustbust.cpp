@@ -134,8 +134,6 @@ template<class TileType> void s_Dustbust::doEngine(int y, int x, int r, ChannelM
 	ChannelSet c(channels);
 	in_channels(0, c);
 	TileType tile(*input(0), x - 1, y - 1, r + 1, y + 2, c); // *input(0) = input0()
-	//TileType prevTile(*input(1), x - 1, y - 1, r + 1, y + 2, c);
-	//TileType nextTile(*input(2), x - 1, y - 1, r + 1, y + 2, c);
 	{
 		Guard guard(_lock);
 		if (_firstTime) {
@@ -151,11 +149,6 @@ template<class TileType> void s_Dustbust::doEngine(int y, int x, int r, ChannelM
 			if(!intersect(tile.channels(), fw_vv))
 				fw_vv = Chan_Black;
 
-			const typename TileType::RowPtr fwU0 = tile[fw_uu][y];
-			const typename TileType::RowPtr fwV0 = tile[fw_vv][y];
-			const typename TileType::RowPtr fwU1 = tile[fw_uu][tile.clampy(y + 1)];
-			const typename TileType::RowPtr fwV1 = tile[fw_vv][tile.clampy(y + 1)];
-
 			// backward motionvectors
 			Channel bw_uu = uv[2];
 			Channel bw_vv = uv[3];
@@ -164,16 +157,11 @@ template<class TileType> void s_Dustbust::doEngine(int y, int x, int r, ChannelM
 			if(!intersect(tile.channels(), bw_vv))
 				bw_vv = Chan_Black;
 
-			const typename TileType::RowPtr bwU0 = tile[bw_uu][y];
-			const typename TileType::RowPtr bwV0 = tile[bw_vv][y];
-			const typename TileType::RowPtr bwU1 = tile[bw_uu][tile.clampy(y + 1)];
-			const typename TileType::RowPtr bwV1 = tile[bw_vv][tile.clampy(y + 1)];
-
 			foreach(z, channels) out.writable(z);
+			
 			InterestRatchet interestRatchet;
 			
-			Pixel fw_pixel(channels);
-			Pixel bw_pixel(channels);
+			Pixel fw_pixel(channels), bw_pixel(channels);
 			
 			fw_pixel.setInterestRatchet(&interestRatchet);
 			bw_pixel.setInterestRatchet(&interestRatchet);
@@ -186,24 +174,28 @@ template<class TileType> void s_Dustbust::doEngine(int y, int x, int r, ChannelM
 				if (xx >= info_.r())
 					xx = info_.r() - 1;
 
-				Vector2 bw_center(bwU0[x] + x + 1.5f,
-								  bwV0[x] + y + 1.5f);
-				Vector2 bw_du(bwU0[xx] - bwU0[x] + 2,
-							  bwV0[xx] - bwV0[x] + 1);
-				Vector2 bw_dv(bwU1[x] - bwU0[x] + 1,
-							  bwV1[x] - bwV0[x] + 2);
+				Vector2 bw_center(tile[bw_uu][y][x] + x + 0.5f,
+								  tile[bw_vv][y][x] + y + 0.5f);
+								  
+				Vector2 bw_du(tile[bw_uu][y][xx] - tile[bw_uu][y][x] + 1,
+							  tile[bw_vv][y][xx] - tile[bw_vv][y][x]);
+							  
+				Vector2 bw_dv(tile[bw_uu][tile.clampy(y + 1)][x] - tile[bw_uu][y][x],
+							  tile[bw_vv][tile.clampy(y + 1)][x] - tile[bw_vv][y][x] + 1);
 
 				input(1)->sample(bw_center, bw_du, bw_dv, bw_pixel);
 
 				foreach(z, prevFrame)
 					((float*)(out[z]))[x] = bw_pixel[z];
 
-				Vector2 fw_center(fwU0[x] + x + 0.5f,
-								  fwV0[x] + y + 0.5f);
-				Vector2 fw_du(fwU0[xx] - fwU0[x] + 1,
-							  fwV0[xx] - fwV0[x]);
-				Vector2 fw_dv(fwU1[x] - fwU0[x],
-							  fwV1[x] - fwV0[x] + 1);
+				Vector2 fw_center(tile[fw_uu][y][x] + x + 0.5f,
+								  tile[fw_vv][y][x] + y + 0.5f);
+								  
+				Vector2 fw_du(tile[fw_uu][y][xx] - tile[fw_uu][y][x] + 1,
+							  tile[fw_vv][y][xx] - tile[fw_vv][y][x]);
+							  
+				Vector2 fw_dv(tile[fw_uu][tile.clampy(y + 1)][x] - tile[fw_uu][y][x],
+							  tile[fw_vv][tile.clampy(y + 1)][x] - tile[fw_vv][y][x] + 1);
 
 				input(2)->sample(fw_center, fw_du, fw_dv, fw_pixel);
 
@@ -230,10 +222,12 @@ template<class TileType> void s_Dustbust::doEngine(int y, int x, int r, ChannelM
 				}
 			}
 			
-			sort(v.begin(), v.end());
+			//sort(v.begin(), v.end());
 			
 			if(colourIndex(z) < 3)
 				((float*)(out[z]))[x] = 0.1f;
+			else
+				((float*)(out[z]))[x] = tile.at( x, y, z );
 		}
 	}		
 }
