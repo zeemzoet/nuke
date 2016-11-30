@@ -73,10 +73,13 @@ public:
   
   void in_channels(int, ChannelSet& mask) const
   {
-	mask += (uv[0]);
-	mask += (uv[1]);
-	mask += (uv[2]);
-	mask += (uv[3]);
+	  for(int i = 0; i < 4; i++)
+		  mask += (uv[i]);
+	  
+	  for(int i = 0; i < 3; i++) {
+		  mask += _prevFrame[i];
+		  mask += _nextFrame[i];
+	  }
   }
   
   void _request(int x, int y, int r, int t, ChannelMask channels, int count)
@@ -131,6 +134,8 @@ const Iop::Description s_Dustbust::d ( CLASS, "Filter/s_Dustbust", build );
 
 template<class TileType> void s_Dustbust::doEngine(int y, int x, int r, ChannelMask channels, Row& out)
 {
+	int X = x;
+	
 	ChannelSet c(channels);
 	in_channels(0, c);
 	TileType tile(*input(0), x - 1, y - 1, r + 1, y + 2, c); // *input(0) = input0()
@@ -157,7 +162,7 @@ template<class TileType> void s_Dustbust::doEngine(int y, int x, int r, ChannelM
 			if(!intersect(tile.channels(), bw_vv))
 				bw_vv = Chan_Black;
 
-			foreach(z, channels) out.writable(z);
+			//foreach(z, channels) out.writable(z);
 			
 			InterestRatchet interestRatchet;
 			
@@ -185,9 +190,6 @@ template<class TileType> void s_Dustbust::doEngine(int y, int x, int r, ChannelM
 
 				input(1)->sample(bw_center, bw_du, bw_dv, bw_pixel);
 
-				foreach(z, prevFrame)
-					((float*)(out[z]))[x] = bw_pixel[z];
-
 				Vector2 fw_center(tile[fw_uu][y][x] + x + 0.5f,
 								  tile[fw_vv][y][x] + y + 0.5f);
 								  
@@ -199,35 +201,23 @@ template<class TileType> void s_Dustbust::doEngine(int y, int x, int r, ChannelM
 
 				input(2)->sample(fw_center, fw_du, fw_dv, fw_pixel);
 
-				foreach(z, nextFrame)
-					((float*)(out[z]))[x] = fw_pixel[z];
+				ChannelSet m(Mask_RGB);
+				foreach(z, m) {
+					*(out.writable( _prevFrame[colourIndex(z)] ) + x) = bw_pixel[z];
+					*(out.writable( _nextFrame[colourIndex(z)] ) + x) = fw_pixel[z];
+				}
 			}
 			
 			_firstTime = false;
 		}
 	} // end of lock
 
+	//reset loop
+	x = X;
 	
 	for (; x < r; x++) {
-		ChannelSet ch(Mask_RGB);
-		ch += prevFrame;
-		ch += nextFrame;
-		
-		foreach(z,ch){
-			vector<float> v;
-			
-			for (int px = -_size; px <= _size; px++) {
-				for (int py = -_size; py <= _size; py++) {
-					v.push_back(tile[z][tile.clampy(y + py)][tile.clampx(x + px)]);
-				}
-			}
-			
-			//sort(v.begin(), v.end());
-			
-			if(colourIndex(z) < 3)
-				((float*)(out[z]))[x] = 0.1f;
-			else
-				((float*)(out[z]))[x] = tile.at( x, y, z );
+		foreach(z, channels) {
+			*(out.writable(z) + x) = 0.5f;
 		}
 	}		
 }
