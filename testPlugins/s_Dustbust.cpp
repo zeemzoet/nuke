@@ -215,10 +215,14 @@ template<class TileType> void s_Dustbust::doEngine(int y, int x, int r, ChannelM
 	//reset loop
 	x = X;
 	
-	for (; x < r; x++) {
-		foreach(z, channels) {
-			*(out.writable(z) + x) = 0.5f;
+	foreach(z, channels) {
+		
+		if (colourIndex(z) < 3) {
+			for (; x < r; x++) 
+				*(out.writable(z) + x) = 0.5f;
 		}
+		else
+			input(0)->get(y, x, r, z, out);
 	}		
 }
 
