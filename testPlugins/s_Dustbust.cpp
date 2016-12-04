@@ -12,7 +12,6 @@ static const char* const HELP =
 #include "DDImage/MultiTile.h"
 #include "DDImage/Pixel.h"
 #include "DDImage/Vector2.h"
-#include "DDImage/Thread.h"
 #include "DDImage/NukeWrapper.h"
 
 using namespace DD::Image;
@@ -31,9 +30,6 @@ private:
 	Channel _prevFrame[3];
 	Channel _nextFrame[3];
 	
-	bool _firstTime;
-	Lock _lock;
-	
 	int _size;
 
 public:
@@ -43,15 +39,14 @@ public:
   {
 	  uv[0] = uv[1] = uv[2] = uv[3] = Chan_Black;
 	  
-	  prevFrame = nextFrame = Mask_None;
+	  prevFrame.clear();
+	  nextFrame.clear();
 	  _prevFrame[0] = getChannel("_prevFrame.r");
 	  _prevFrame[1] = getChannel("_prevFrame.g");
 	  _prevFrame[2] = getChannel("_prevFrame.b");
 	  _nextFrame[0] = getChannel("_nextFrame.r");
 	  _nextFrame[1] = getChannel("_nextFrame.g");
 	  _nextFrame[2] = getChannel("_nextFrame.b");
-	  
-	  _firstTime = true;
 	  
 	  _size = 2;
   }
@@ -77,8 +72,8 @@ public:
 		  mask += (uv[i]);
 	  
 	  for(int i = 0; i < 3; i++) {
-		  mask += _prevFrame[i];
-		  mask += _nextFrame[i];
+		  mask += (_prevFrame[i]);
+		  mask += (_nextFrame[i]);
 	  }
   }
   
@@ -139,91 +134,91 @@ template<class TileType> void s_Dustbust::doEngine(int y, int x, int r, ChannelM
 	ChannelSet c(channels);
 	in_channels(0, c);
 	TileType tile(*input(0), x - 1, y - 1, r + 1, y + 2, c); // *input(0) = input0()
-	{
-		Guard guard(_lock);
-		if (_firstTime) {
+	
 			
-			if (aborted())
-				return;
+	if (aborted())
+		return;
 
-			// forward motionvectors
-			Channel fw_uu = uv[0];
-			Channel fw_vv = uv[1];
-			if(!intersect(tile.channels(), fw_uu))
-				fw_uu = Chan_Black;
-			if(!intersect(tile.channels(), fw_vv))
-				fw_vv = Chan_Black;
+	// forward motionvectors
+	Channel fw_uu = uv[0];
+	Channel fw_vv = uv[1];
+	if(!intersect(tile.channels(), fw_uu))
+		fw_uu = Chan_Black;
+	if(!intersect(tile.channels(), fw_vv))
+		fw_vv = Chan_Black;
 
-			// backward motionvectors
-			Channel bw_uu = uv[2];
-			Channel bw_vv = uv[3];
-			if(!intersect(tile.channels(), bw_uu))
-				bw_uu = Chan_Black;
-			if(!intersect(tile.channels(), bw_vv))
-				bw_vv = Chan_Black;
+	// backward motionvectors
+	Channel bw_uu = uv[2];
+	Channel bw_vv = uv[3];
+	if(!intersect(tile.channels(), bw_uu))
+		bw_uu = Chan_Black;
+	if(!intersect(tile.channels(), bw_vv))
+		bw_vv = Chan_Black;
 
-			//foreach(z, channels) out.writable(z);
+	for(int i = 0; i < 3; i++) {
+		if(!intersect(tile.channels(), _prevFrame[i]))
+			_prevFrame[i] = Chan_Black;
+		if(!intersect(tile.channels(), _nextFrame[i]))
+			_nextFrame[i] = Chan_Black;
+	}
+
+	//foreach(z, channels) out.writable(z);
 			
-			InterestRatchet interestRatchet;
+	InterestRatchet interestRatchet;
 			
-			Pixel fw_pixel(channels), bw_pixel(channels);
+	Pixel fw_pixel(channels), bw_pixel(channels);
 			
-			fw_pixel.setInterestRatchet(&interestRatchet);
-			bw_pixel.setInterestRatchet(&interestRatchet);
+	fw_pixel.setInterestRatchet(&interestRatchet);
+	bw_pixel.setInterestRatchet(&interestRatchet);
 
-			for (; x < r; x++) {
+	for (; x < r; x++) {
 
-				if (aborted()) break;
+		if (aborted()) break;
 
-				int xx = x + 1;
-				if (xx >= info_.r())
-					xx = info_.r() - 1;
+		int xx = x + 1;
+		if (xx >= info_.r())
+			xx = info_.r() - 1;
 
-				Vector2 bw_center(tile[bw_uu][y][x] + x + 0.5f,
-								  tile[bw_vv][y][x] + y + 0.5f);
+		Vector2 bw_center(tile[bw_uu][y][x] + x + 0.5f,
+							tile[bw_vv][y][x] + y + 0.5f);
 								  
-				Vector2 bw_du(tile[bw_uu][y][xx] - tile[bw_uu][y][x] + 1,
-							  tile[bw_vv][y][xx] - tile[bw_vv][y][x]);
+		Vector2 bw_du(tile[bw_uu][y][xx] - tile[bw_uu][y][x] + 1,
+						tile[bw_vv][y][xx] - tile[bw_vv][y][x]);
 							  
-				Vector2 bw_dv(tile[bw_uu][tile.clampy(y + 1)][x] - tile[bw_uu][y][x],
-							  tile[bw_vv][tile.clampy(y + 1)][x] - tile[bw_vv][y][x] + 1);
+		Vector2 bw_dv(tile[bw_uu][tile.clampy(y + 1)][x] - tile[bw_uu][y][x],
+						tile[bw_vv][tile.clampy(y + 1)][x] - tile[bw_vv][y][x] + 1);
 
-				input(1)->sample(bw_center, bw_du, bw_dv, bw_pixel);
+		input(1)->sample(bw_center, bw_du, bw_dv, bw_pixel);
 
-				Vector2 fw_center(tile[fw_uu][y][x] + x + 0.5f,
-								  tile[fw_vv][y][x] + y + 0.5f);
+		Vector2 fw_center(tile[fw_uu][y][x] + x + 0.5f,
+							tile[fw_vv][y][x] + y + 0.5f);
 								  
-				Vector2 fw_du(tile[fw_uu][y][xx] - tile[fw_uu][y][x] + 1,
-							  tile[fw_vv][y][xx] - tile[fw_vv][y][x]);
+		Vector2 fw_du(tile[fw_uu][y][xx] - tile[fw_uu][y][x] + 1,
+						tile[fw_vv][y][xx] - tile[fw_vv][y][x]);
 							  
-				Vector2 fw_dv(tile[fw_uu][tile.clampy(y + 1)][x] - tile[fw_uu][y][x],
-							  tile[fw_vv][tile.clampy(y + 1)][x] - tile[fw_vv][y][x] + 1);
+		Vector2 fw_dv(tile[fw_uu][tile.clampy(y + 1)][x] - tile[fw_uu][y][x],
+						tile[fw_vv][tile.clampy(y + 1)][x] - tile[fw_vv][y][x] + 1);
 
-				input(2)->sample(fw_center, fw_du, fw_dv, fw_pixel);
+		input(2)->sample(fw_center, fw_du, fw_dv, fw_pixel);
 
-				ChannelSet m(Mask_RGB);
-				foreach(z, m) {
-					*(out.writable( _prevFrame[colourIndex(z)] ) + x) = bw_pixel[z];
-					*(out.writable( _nextFrame[colourIndex(z)] ) + x) = fw_pixel[z];
-				}
-			}
-			
-			_firstTime = false;
+		ChannelSet m(Mask_RGB);
+		foreach(z, m) {
+			*(out.writable( _nextFrame[colourIndex(z)] ) + x) = bw_pixel[z];
+			*(out.writable( _prevFrame[colourIndex(z)] ) + x) = fw_pixel[z];
 		}
-	} // end of lock
+	}
 
 	//reset loop
 	x = X;
-	
-	foreach(z, channels) {
-		
-		if (colourIndex(z) < 3) {
-			for (; x < r; x++) 
-				*(out.writable(z) + x) = 0.5f;
+
+	for (; x < r; x++) {
+		foreach(z, channels) {
+			if (z == Chan_Red || z == Chan_Green || z == Chan_Blue)
+				out.writable(z)[x] = out[_prevFrame[colourIndex(z)]][x];
+			else
+				out.writable(z)[x] = tile.at(x,y,z);
 		}
-		else
-			input(0)->get(y, x, r, z, out);
-	}		
+	}
 }
 
 void s_Dustbust::knobs(Knob_Callback f)
